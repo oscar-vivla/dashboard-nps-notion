@@ -1,10 +1,19 @@
-// functions/src/index.js
-import { onRequest } from 'firebase-functions/v2/https';
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
-import { initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { Client } from '@notionhq/client';
-import * as dotenv from 'dotenv';
+const { onRequest } = require('firebase-functions/v2/https');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+const { Client } = require('@notionhq/client');
+const dotenv = require('dotenv');
+
+// notion config
+const NOTION_TOKEN = "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"
+const NOTION_DATABASE_ID = "19fc6a455de88026bb6ff62e459ed1d1"
+
+// Environment Configuration
+const NODE_ENV = "development"
+
+// instalar @notionhq/client
+// npm install @notionhq/client
 
 dotenv.config();
 
@@ -22,7 +31,6 @@ const formatDate = (timestamp) => {
     const date = timestamp.toDate();
     return date.toISOString().split('T')[0];
 };
-
 
 const getHomeData = async (homeData) => {
     const db = getFirestore();
@@ -48,18 +56,14 @@ const getUserData = async (userData) => {
     return null;
 };
 
-
-
 // estructura de datos para Notion
 const createNotionData = async (npsData) => {
-
     const homeData = await getHomeData(npsData);
     const homeName = homeData ? homeData.name : npsData.hid;
     const homeLocation = homeData ? homeData.location : null;
 
     const userData = await getUserData(npsData);
     const userName = userData ? userData.name : npsData.uid;
-
 
     const properties = {
         'Casa': {
@@ -116,8 +120,7 @@ const createNotionData = async (npsData) => {
     };
 };
 
-
-export const migrateToNotion = onRequest({
+const migrateToNotion = onRequest({
     timeoutSeconds: 540,
     memory: '256MiB'
 }, async (request, response) => {
@@ -128,7 +131,7 @@ export const migrateToNotion = onRequest({
         const errors = [];
 
         // CAMBIAR POR NOMBRE DE TABLA BUENA --> nps-booking
-        const snapshot = await db.collection('nps')
+        const snapshot = await db.collection('nps-booking')
             .where('round', '==', 'home')
             .get();
 
@@ -175,9 +178,7 @@ export const migrateToNotion = onRequest({
     }
 });
 
-// Trigger para nuevos nps
-// CAMBIAR TAMBIEN NOMBRE COLECCIÓN --> nps-booking
-export const syncNewNPSToNotion = onDocumentCreated('nps/{docId}', async (event) => {
+const syncNewNPSToNotion = onDocumentCreated('nps-booking/{docId}', async (event) => {
     try {
         const snapshot = event.data;
         if (!snapshot) {
@@ -200,3 +201,9 @@ export const syncNewNPSToNotion = onDocumentCreated('nps/{docId}', async (event)
         throw error;
     }
 });
+
+// Exportar las funciones
+module.exports = {
+    migrateToNotion,
+    syncNewNPSToNotion
+};
