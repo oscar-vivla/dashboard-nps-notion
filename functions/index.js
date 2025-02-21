@@ -23,40 +23,60 @@ const formatDate = (timestamp) => {
     return date.toISOString().split('T')[0];
 };
 
+
+const getHomeData = async (homeData) => {
+    const db = getFirestore();
+    const homeSnapshot = await db.collection('homes')
+        .where('hid', '==', homeData.hid)
+        .limit(1)
+        .get();
+
+    if (!homeSnapshot.empty) {
+        return homeSnapshot.docs[0].data();
+    }
+    return null;
+};
+
 // estructura de datos para Notion
-const createNotionData = (data) => {
+const createNotionData = async (npsData) => {
+
+    const homeData = await getHomeData(npsData);
+    const homeName = homeData ? homeData.name : npsData.hid
+    const homeLocation = homeData.location;
+
+
     const properties = {
         'Casa': {
             title: [
                 {
                     text: {
-                        content: data.hid || 'Sin especificar'
+                        content: homeName || 'Sin especificar'
                     }
                 }
             ]
         },
         'NPS': {
-            number: data.nps || 0
+            number: npsData.nps || 0
         },
         'Comentario': {
             rich_text: [
                 {
                     text: {
-                        content: data.comment || ''
+                        content: npsData.comment || ''
                     }
                 }
             ]
         },
         'Fecha': {
             date: {
-                start: formatDate(data.date) || new Date().toISOString()
+                start: formatDate(npsData.date) || new Date().toISOString()
             }
         },
         'Propietarios': {
             rich_text: [
                 {
                     text: {
-                        content: data.uid || ''
+                        content: npsData.uid || ''
                     }
                 }
             ]
@@ -64,10 +84,10 @@ const createNotionData = (data) => {
     };
 
     // Solo añadir Destino si existe
-    if (data.destino) {
+    if (homeLocation) {
         properties['Destino'] = {
             select: {
-                name: data.destino
+                name: homeLocation || 'Sin destino'
             }
         };
     }
@@ -105,7 +125,7 @@ export const migrateToNotion = onRequest({
         for (const doc of snapshot.docs) {
             try {
                 const data = doc.data();
-                await notion.pages.create(createNotionData(data));
+                await notion.pages.create(await createNotionData(data));
                 migratedCount++;
                 console.log(`Migrado documento ${doc.id} correctamente`);
             } catch (docError) {
@@ -154,7 +174,7 @@ export const syncNewNPSToNotion = onDocumentCreated('nps/{docId}', async (event)
             return;
         }
 
-        await notion.pages.create(createNotionData(data));
+        await notion.pages.create(await createNotionData(data));
         console.log(`Creado nuevo registro en Notion para documento ${snapshot.id}`);
 
     } catch (error) {
