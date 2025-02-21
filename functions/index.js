@@ -28,7 +28,6 @@ const getHomeData = async (homeData) => {
     const db = getFirestore();
     const homeSnapshot = await db.collection('homes')
         .where('hid', '==', homeData.hid)
-        .limit(1)
         .get();
 
     if (!homeSnapshot.empty) {
@@ -37,12 +36,29 @@ const getHomeData = async (homeData) => {
     return null;
 };
 
+const getUserData = async (userData) => {
+    const db = getFirestore();
+    const homeSnapshot = await db.collection('users')
+        .where('uid', '==', userData.uid)
+        .get();
+
+    if (!homeSnapshot.empty) {
+        return homeSnapshot.docs[0].data();
+    }
+    return null;
+};
+
+
+
 // estructura de datos para Notion
 const createNotionData = async (npsData) => {
 
     const homeData = await getHomeData(npsData);
-    const homeName = homeData ? homeData.name : npsData.hid
-    const homeLocation = homeData.location;
+    const homeName = homeData ? homeData.name : npsData.hid;
+    const homeLocation = homeData ? homeData.location : null;
+
+    const userData = await getUserData(npsData);
+    const userName = userData ? userData.name : npsData.uid;
 
 
     const properties = {
@@ -76,7 +92,7 @@ const createNotionData = async (npsData) => {
             rich_text: [
                 {
                     text: {
-                        content: npsData.uid || ''
+                        content: userName || 'Sin especificar'
                     }
                 }
             ]
@@ -111,6 +127,7 @@ export const migrateToNotion = onRequest({
         let errorCount = 0;
         const errors = [];
 
+        // CAMBIAR POR NOMBRE DE TABLA BUENA: nps-booking
         const snapshot = await db.collection('nps')
             .where('round', '==', 'home')
             .get();
